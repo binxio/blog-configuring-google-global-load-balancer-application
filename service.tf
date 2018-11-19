@@ -55,3 +55,4 @@ resource "google_compute_firewall" "paas-monitor" {
   source_ranges = ["35.191.0.0/16", "130.211.0.0/22", "209.85.152.0/22", "209.85.204.0/22"]
   target_tags   = ["paas-monitor"]
 }
+

@@ -31,3 +31,7 @@ resource "google_dns_record_set" "paas-monitor" {
 
   rrdatas = ["${google_compute_global_address.paas-monitor.address}"]
 }
+
+output "ip-address" {
+    value = "${google_compute_global_address.paas-monitor.address}"
+}
