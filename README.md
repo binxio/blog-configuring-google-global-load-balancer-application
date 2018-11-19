@@ -1,4 +1,4 @@
-# deployment-google-global-load-balancer-application
+# deployment of an application with the Google Global Load Balancer 
 Demonstration of the world wide deployment of the paas-monitor on Google Compute Engine.
 
 It implements the following diagram in Terraform. 
