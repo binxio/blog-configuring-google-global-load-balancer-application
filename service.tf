@@ -7,15 +7,15 @@ resource "google_compute_backend_service" "paas-monitor" {
   session_affinity = "NONE"
 
   backend {
-    group = "${module.instance-group-region-a.instance_group_manager}"
+    group = module.instance-group-region-a.instance_group_manager
   }
 
   backend {
-    group = "${module.instance-group-region-b.instance_group_manager}"
+    group = module.instance-group-region-b.instance_group_manager
   }
 
   backend {
-    group = "${module.instance-group-region-c.instance_group_manager}"
+    group = module.instance-group-region-c.instance_group_manager
   }
 
   health_checks = ["${module.instance-group-region-a.health_check}"]

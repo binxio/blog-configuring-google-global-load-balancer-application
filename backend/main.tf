@@ -4,12 +4,11 @@ resource "google_compute_region_instance_group_manager" "paas-monitor" {
   name = "paas-monitor-${var.region}"
 
   base_instance_name = "paas-monitor-${var.region}"
-  region             = "${var.region}"
-  instance_template  = "${google_compute_instance_template.paas-monitor.self_link}"
+  region             = var.region
 
   version {
     name              = "v1"
-    instance_template = "${google_compute_instance_template.paas-monitor.self_link}"
+    instance_template = google_compute_instance_template.paas-monitor.self_link
   }
 
   named_port {
@@ -18,17 +17,17 @@ resource "google_compute_region_instance_group_manager" "paas-monitor" {
   }
 
   auto_healing_policies {
-    health_check      = "${google_compute_http_health_check.paas-monitor.self_link}"
+    health_check      = google_compute_http_health_check.paas-monitor.self_link
     initial_delay_sec = 30
   }
 
-  update_strategy = "ROLLING_UPDATE"
-
-  rolling_update_policy {
-    type            = "PROACTIVE"
-    minimal_action  = "REPLACE"
-    max_surge_fixed = 10
-    min_ready_sec   = 60
+  update_policy {
+    type                           = "PROACTIVE"
+    minimal_action                 = "REPLACE"
+    most_disruptive_allowed_action = "REPLACE"
+    max_surge_fixed                = 4
+    max_unavailable_fixed          = 0
+    replacement_method             = "SUBSTITUTE"
   }
 }
 
@@ -48,7 +47,7 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   disk {
-    source_image = "${data.google_compute_image.cos_image.self_link}"
+    source_image = data.google_compute_image.cos_image.self_link
     auto_delete  = true
     boot         = true
   }
@@ -61,8 +60,8 @@ resource "google_compute_instance_template" "paas-monitor" {
     }
   }
 
-  metadata {
-    "startup-script" = "docker run -d -p 1337:1337 --env 'MESSAGE=gcp at ${var.region}' --env RELEASE=v3.0.4.15 mvanholsteijn/paas-monitor:3.0.4"
+  metadata = {
+    startup-script = "docker run -d -p 1337:1337 --env 'MESSAGE=gcp at ${var.region}' --env RELEASE=v3.0.4.15 mvanholsteijn/paas-monitor:3.0.4"
   }
 
   lifecycle {
@@ -72,9 +71,9 @@ resource "google_compute_instance_template" "paas-monitor" {
 
 resource "google_compute_region_autoscaler" "paas-monitor" {
   name   = "paas-monitor-${var.region}"
-  target = "${google_compute_region_instance_group_manager.paas-monitor.self_link}"
+  target = google_compute_region_instance_group_manager.paas-monitor.self_link
 
-  autoscaling_policy = {
+  autoscaling_policy {
     max_replicas    = 5
     min_replicas    = 1
     cooldown_period = 60
@@ -84,7 +83,7 @@ resource "google_compute_region_autoscaler" "paas-monitor" {
     }
   }
 
-  region = "${var.region}"
+  region = var.region
 }
 
 resource "google_compute_http_health_check" "paas-monitor" {
@@ -106,9 +105,9 @@ data "google_compute_image" "cos_image" {
 }
 
 output "instance_group_manager" {
-  value = "${google_compute_region_instance_group_manager.paas-monitor.instance_group}"
+  value = google_compute_region_instance_group_manager.paas-monitor.instance_group
 }
 
 output "health_check" {
-  value = "${google_compute_http_health_check.paas-monitor.self_link}"
+  value = google_compute_http_health_check.paas-monitor.self_link
 }
