@@ -6,38 +6,39 @@ resource "google_compute_backend_service" "paas-monitor" {
   timeout_sec      = 10
   session_affinity = "NONE"
 
-  backend {
-    group = module.instance-group-region-a.instance_group_manager
+  dynamic backend {
+    for_each = local.regions
+    content {
+      group = module.instance-group[backend.key].instance_group_manager
+    }
   }
 
-  backend {
-    group = module.instance-group-region-b.instance_group_manager
-  }
-
-  backend {
-    group = module.instance-group-region-c.instance_group_manager
-  }
-
-  health_checks = ["${module.instance-group-region-a.health_check}"]
+  health_checks = [module.instance-group[tolist(local.regions)[0]].health_check]
 }
 
-module "instance-group-region-a" {
+module "instance-group" {
+  for_each = local.regions
   source = "./backend"
-  region = "us-central1"
+  region = each.key
+  service_account = google_service_account.paas-monitor.email
 }
 
-module "instance-group-region-b" {
-  source = "./backend"
-  region = "europe-west4"
+moved {
+  from = module.instance-group-region-a
+  to  = module.instance-group["us-central1"]
 }
 
-module "instance-group-region-c" {
-  source = "./backend"
-  region = "asia-east1"
+moved {
+  from = module.instance-group-region-b
+  to  = module.instance-group["europe-west4"]
+}
+
+moved {
+  from = module.instance-group-region-c
+  to  = module.instance-group["asia-east1"]
 }
 
 resource "google_compute_firewall" "paas-monitor" {
-  ## firewall rules enabling the load balancer health checks
   name    = "paas-monitor-firewall"
   network = "default"
 
@@ -56,3 +57,41 @@ resource "google_compute_firewall" "paas-monitor" {
   target_tags   = ["paas-monitor"]
 }
 
+resource "google_service_account" "paas-monitor" {
+  account_id = "paas-monitor"
+  description = "the application showing it all"
+}
+
+resource "google_project_iam_member" "paas-monitor" {
+  for_each = toset(["roles/logging.logWriter", "roles/monitoring.metricWriter"])
+  member = google_service_account.paas-monitor.member
+  role = each.key
+  project = google_service_account.paas-monitor.project
+}
+
+resource "google_secret_manager_secret" "paas-monitor-identity" {
+  secret_id = "paas-monitor-identity"
+
+  replication {
+    user_managed {
+      dynamic replicas {
+        for_each = local.regions
+        content {
+          location = replicas.key
+        }
+      }
+    }
+  }
+}
+
+resource google_secret_manager_secret_iam_binding "paas-monitor-identity-accessors" {
+  secret_id = google_secret_manager_secret.paas-monitor-identity.secret_id
+  role = "roles/secretmanager.secretAccessor"
+  members = [
+    google_service_account.paas-monitor.member
+  ]
+}
+
+locals {
+  regions = toset(["us-central1", "europe-west4", "asia-east1"])
+}

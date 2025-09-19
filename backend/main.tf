@@ -1,5 +1,16 @@
 variable "region" {}
 
+variable service_account {
+  description = "The service account to use of the application."
+  type        = string
+  default     = ""
+}
+
+variable ziti_identity {
+  description = "Google Secret version name with the ziti identity configuration."
+  type        = string
+}
+
 resource "google_compute_region_instance_group_manager" "paas-monitor" {
   name = "paas-monitor-${var.region}"
 
@@ -61,7 +72,14 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   metadata = {
-    startup-script = "docker run -d -p 1337:1337 --env 'MESSAGE=gcp at ${var.region}' --env RELEASE=v3.0.4.15 mvanholsteijn/paas-monitor:3.0.4"
+    startup-script = "docker run -d -p 1337:1337 --env 'MESSAGE=gcp at ${var.region}' --env gcr.io/binx-io-public/paas-monitor:3.5.0 ${local.paas_monitor_opts}"
+  }
+
+  service_account {
+    email = var.service_account
+    scopes = [
+      "cloud-platform"
+    ]
   }
 
   lifecycle {
@@ -110,4 +128,9 @@ output "instance_group_manager" {
 
 output "health_check" {
   value = google_compute_http_health_check.paas-monitor.self_link
+}
+
+locals {
+  paas_monitor_opts = var.ziti_identity != "" ?
+    "--ziti-server-configuration gsm:///${var.ziti_identity}" : ""
 }
