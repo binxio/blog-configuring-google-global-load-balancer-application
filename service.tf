@@ -1,31 +1,15 @@
-resource "google_compute_backend_service" "paas-monitor" {
-  name             = "paas-monitor-backend"
-  description      = "region backend"
-  protocol         = "HTTP"
-  port_name        = "paas-monitor"
-  timeout_sec      = 10
-  session_affinity = "NONE"
-
-  dynamic "backend" {
-    for_each = local.regions
-    content {
-      group = module.instance-group[backend.key].instance_group_manager
-    }
-  }
-
-  health_checks = [module.instance-group[tolist(local.regions)[0]].health_check]
-}
 
 module "instance-group" {
   for_each        = local.regions
   source          = "./backend"
   region          = each.key
+  subnetwork      = google_compute_subnetwork.paas_monitor[each.key].id
   service_account = google_service_account.paas-monitor.email
 }
 
 resource "google_compute_firewall" "paas-monitor" {
   name    = "paas-monitor-firewall"
-  network = "default"
+  network = google_compute_network.paas_monitor.id
 
   description = "allow Google health checks and network load balancers access"
 
@@ -38,7 +22,7 @@ resource "google_compute_firewall" "paas-monitor" {
     ports    = ["1337"]
   }
 
-  source_ranges = ["35.191.0.0/16", "130.211.0.0/22", "209.85.152.0/22", "209.85.204.0/22"]
+  source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
   target_tags   = ["paas-monitor"]
 }
 
@@ -54,6 +38,34 @@ resource "google_project_iam_member" "paas-monitor" {
   project  = google_service_account.paas-monitor.project
 }
 
+resource "google_secret_manager_secret" "paas-monitor-identity" {
+  secret_id = "paas-monitor-identity"
+
+  replication {
+    user_managed {
+      dynamic "replicas" {
+        for_each = local.secret_regions
+        content {
+          location = replicas.key
+        }
+      }
+    }
+  }
+}
+
+resource "google_secret_manager_secret_iam_binding" "paas-monitor-identity-accessors" {
+  secret_id = google_secret_manager_secret.paas-monitor-identity.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  members = [
+    google_service_account.paas-monitor.member
+  ]
+}
+
 locals {
-  regions = toset(["us-central1", "europe-west4", "asia-east1"])
+  secret_regions = toset(["us-central1", "europe-west4", "asia-east1"])
+  regions = {
+    "us-central1"  = "10.0.0.0/24",
+    "europe-west4" = "10.0.1.0/24"
+    "asia-east1"   = "10.0.2.0/24"
+  }
 }

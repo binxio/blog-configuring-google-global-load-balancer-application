@@ -1,4 +1,8 @@
 variable "region" {}
+variable "subnetwork" {
+  description = "To deploy the instance in"
+}
+
 
 variable service_account {
   description = "The service account to use of the application."
@@ -23,7 +27,7 @@ resource "google_compute_region_instance_group_manager" "paas-monitor" {
   }
 
   auto_healing_policies {
-    health_check      = google_compute_http_health_check.paas-monitor.self_link
+    health_check      = google_compute_region_health_check.paas-monitor.self_link
     initial_delay_sec = 30
   }
 
@@ -43,13 +47,13 @@ resource "google_compute_instance_template" "paas-monitor" {
   tags = ["paas-monitor"]
 
   instance_description = "paas-monitor backend"
-  machine_type         = "g1-small"
+  machine_type         = "c2-standard-4" # "g1-small"
   can_ip_forward       = false
 
   scheduling {
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
-    preemptible         = true
+    preemptible         = false
   }
 
   disk {
@@ -59,11 +63,7 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   network_interface {
-    network = "default"
-
-    access_config {
-      nat_ip = ""
-    }
+    subnetwork = var.subnetwork
   }
 
   metadata = {
@@ -99,13 +99,16 @@ resource "google_compute_region_autoscaler" "paas-monitor" {
   region = var.region
 }
 
-resource "google_compute_http_health_check" "paas-monitor" {
-  name         = "paas-monitor-${var.region}"
-  request_path = "/health"
-
+resource "google_compute_region_health_check" "paas-monitor" {
+  name               = "paas-monitor"
+  region             = var.region
   timeout_sec        = 5
   check_interval_sec = 5
-  port               = 1337
+
+  http_health_check {
+    request_path = "/health"
+    port         = 1337
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -119,8 +122,4 @@ data "google_compute_image" "cos_image" {
 
 output "instance_group_manager" {
   value = google_compute_region_instance_group_manager.paas-monitor.instance_group
-}
-
-output "health_check" {
-  value = google_compute_http_health_check.paas-monitor.self_link
 }

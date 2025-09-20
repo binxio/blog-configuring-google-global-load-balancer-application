@@ -74,6 +74,41 @@ resource "google_compute_target_https_proxy" "paas-monitor" {
   ssl_certificates = [google_compute_managed_ssl_certificate.paas-monitor.id]
 }
 
+resource "google_compute_backend_service" "paas-monitor" {
+  name             = "paas-monitor-backend"
+  description      = "region backend"
+  protocol         = "HTTP"
+  port_name        = "paas-monitor"
+  timeout_sec      = 10
+  session_affinity = "NONE"
+
+  dynamic "backend" {
+    for_each = local.regions
+    content {
+      group = module.instance-group[backend.key].instance_group_manager
+    }
+  }
+
+  health_checks = [
+    google_compute_health_check.paas-monitor.id
+  ]
+}
+
+resource "google_compute_health_check" "paas-monitor" {
+  name         = "paas-monitor-ng"
+  timeout_sec        = 5
+  check_interval_sec = 5
+
+
+  http_health_check {
+    request_path = "/health"
+    port         = 1337
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
 
 output "ip-address" {
   value = google_compute_global_address.paas-monitor.address
