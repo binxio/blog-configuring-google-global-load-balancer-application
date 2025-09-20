@@ -1,12 +1,13 @@
 variable "region" {}
-
-variable service_account {
+variable "subnetwork" {
+  description = "To deploy the instance in"
+}
+variable "service_account" {
   description = "The service account to use of the application."
   type        = string
-  default     = ""
 }
 
-variable ziti_identity {
+variable "ziti_identity" {
   description = "Google Secret version name with the ziti identity configuration."
   type        = string
 }
@@ -28,7 +29,7 @@ resource "google_compute_region_instance_group_manager" "paas-monitor" {
   }
 
   auto_healing_policies {
-    health_check      = google_compute_http_health_check.paas-monitor.self_link
+    health_check      = google_compute_region_health_check.paas-monitor.self_link
     initial_delay_sec = 30
   }
 
@@ -64,15 +65,11 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   network_interface {
-    network = "default"
-
-    access_config {
-      nat_ip = ""
-    }
+    subnetwork = var.subnetwork
   }
 
   metadata = {
-    startup-script = "docker run -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 ${local.paas_monitor_opts}"
+    startup-script = "docker run -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 --ziti-server-configuration gsm:///${var.ziti_identity}"
   }
 
   service_account {
@@ -104,13 +101,16 @@ resource "google_compute_region_autoscaler" "paas-monitor" {
   region = var.region
 }
 
-resource "google_compute_http_health_check" "paas-monitor" {
-  name         = "paas-monitor-${var.region}"
-  request_path = "/health"
-
+resource "google_compute_region_health_check" "paas-monitor" {
+  name               = "paas-monitor"
+  region             = var.region
   timeout_sec        = 5
   check_interval_sec = 5
-  port               = 1337
+
+  http_health_check {
+    request_path = "/health"
+    port         = 1337
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -124,12 +124,4 @@ data "google_compute_image" "cos_image" {
 
 output "instance_group_manager" {
   value = google_compute_region_instance_group_manager.paas-monitor.instance_group
-}
-
-output "health_check" {
-  value = google_compute_http_health_check.paas-monitor.self_link
-}
-
-locals {
-  paas_monitor_opts = var.ziti_identity != "" ? "--ziti-server-configuration gsm:///${var.ziti_identity}" : ""
 }
