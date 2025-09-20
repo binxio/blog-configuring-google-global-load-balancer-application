@@ -1,5 +1,11 @@
 variable "region" {}
 
+variable service_account {
+  description = "The service account to use of the application."
+  type        = string
+  default     = ""
+}
+
 resource "google_compute_region_instance_group_manager" "paas-monitor" {
   name = "paas-monitor-${var.region}"
 
@@ -61,7 +67,14 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   metadata = {
-    startup-script = "docker run -d -p 1337:1337 --env 'MESSAGE=gcp at ${var.region}' --env RELEASE=v3.0.4.15 mvanholsteijn/paas-monitor:3.0.4"
+    startup-script = "docker run -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0"
+  }
+
+  service_account {
+    email = var.service_account
+    scopes = [
+      "cloud-platform"
+    ]
   }
 
   lifecycle {
