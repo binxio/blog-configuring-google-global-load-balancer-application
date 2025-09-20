@@ -72,7 +72,7 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   metadata = {
-    startup-script = "docker run -d -p 1337:1337 --env 'MESSAGE=gcp at ${var.region}' --env gcr.io/binx-io-public/paas-monitor:3.5.0 ${local.paas_monitor_opts}"
+    startup-script = "docker run -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 ${local.paas_monitor_opts}"
   }
 
   service_account {
@@ -131,6 +131,5 @@ output "health_check" {
 }
 
 locals {
-  paas_monitor_opts = var.ziti_identity != "" ?
-    "--ziti-server-configuration gsm:///${var.ziti_identity}" : ""
+  paas_monitor_opts = var.ziti_identity != "" ? "--ziti-server-configuration gsm:///${var.ziti_identity}" : ""
 }

@@ -21,6 +21,7 @@ module "instance-group" {
   source = "./backend"
   region = each.key
   service_account = google_service_account.paas-monitor.email
+  ziti_identity = "${google_secret_manager_secret.paas-monitor-identity.name}/versions/latest"
 }
 
 moved {
@@ -75,7 +76,7 @@ resource "google_secret_manager_secret" "paas-monitor-identity" {
   replication {
     user_managed {
       dynamic replicas {
-        for_each = local.regions
+        for_each = local.secret_regions
         content {
           location = replicas.key
         }
@@ -93,5 +94,6 @@ resource google_secret_manager_secret_iam_binding "paas-monitor-identity-accesso
 }
 
 locals {
+  secret_regions = toset(["us-central1", "europe-west4", "asia-east1"])
   regions = toset(["us-central1", "europe-west4", "asia-east1"])
 }
