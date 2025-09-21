@@ -2,19 +2,21 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
+
 // Custom metrics
 export let errorCount = new Counter('errors');
 export let errorRate = new Rate('error_rate');
 export let responseTrend = new Trend('response_time_trend');
 
+// Region metrics - these will appear in k6 output
+export let messageCounter = new Counter('message_requests');
+
+
 // Test configuration
 export let options = {
     stages: [
-        // Ramp-up to 500 users over 5 minutes
         { duration: '4m', target: 500 },
-        // Stay at 500 users for 2 minutes
         { duration: '2m', target: 500 },
-        // Ramp-down to 0 users over 2 minutes
         { duration: '2m', target: 0 },
     ],
 
@@ -48,6 +50,20 @@ export default function () {
             (r.headers['Content-Type'].includes('application/json')),
     });
 
+    // Parse JSON and track messages
+    if (checkRes && response.status === 200) {
+        try {
+            let jsonResponse = JSON.parse(response.body);
+            if (jsonResponse.message) {
+                messageCounter.add(1, { message: jsonResponse.message });
+            }
+        } catch (e) {
+            console.error(`Failed to parse JSON response: ${e.message}`);
+            errorCount.add(1);
+            errorRate.add(true);
+        }
+    }
+
     // Track custom metrics
     if (!checkRes) {
         errorCount.add(1);
@@ -56,7 +72,6 @@ export default function () {
         errorRate.add(false);
         responseTrend.add(response.timings.duration);
     }
-
 
     // Log errors for debugging
     if (response.status !== 200) {
@@ -79,12 +94,19 @@ export function setup() {
         console.error('Make sure the service is accessible before running the load test');
     } else {
         console.log('Setup check passed - service is accessible');
+
+        // Check if message field exists in response
+        try {
+            let jsonResponse = JSON.parse(response.body);
+            if (jsonResponse.message) {
+                console.log(`Sample message from setup: ${jsonResponse.message}`);
+            } else {
+                console.warn('Warning: No "message" field found in response');
+            }
+        } catch (e) {
+            console.warn('Warning: Could not parse JSON response in setup');
+        }
     }
 
     return { baseUrl: BASE_URL };
-}
-
-// Teardown function - runs once after the test ends
-export function teardown(data) {
-    console.log(`Load test completed for: ${data.baseUrl}/status`);
 }
