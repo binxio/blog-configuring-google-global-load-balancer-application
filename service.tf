@@ -10,7 +10,7 @@ module "instance-group" {
 
 resource "google_compute_firewall" "paas-monitor" {
   name    = "paas-monitor-firewall"
-  network = "default"
+  network = google_compute_network.paas_monitor.id
 
   description = "allow Google health checks and network load balancers access"
 
@@ -63,6 +63,7 @@ resource "google_secret_manager_secret_iam_binding" "paas-monitor-identity-acces
 }
 
 locals {
+  # secrets regions cannot change, therefore we have separated them from the regions.
   secret_regions = toset(["us-central1", "europe-west4", "asia-east1"])
   regions = {
     "us-central1"  = "10.0.0.0/24",
