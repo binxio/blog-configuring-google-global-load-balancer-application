@@ -49,13 +49,13 @@ resource "google_compute_instance_template" "paas-monitor" {
   tags = ["paas-monitor"]
 
   instance_description = "paas-monitor backend"
-  machine_type         = "g1-small"
+  machine_type         = "c2-standard-4" #"g1-small"
   can_ip_forward       = false
 
   scheduling {
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
-    preemptible         = true
+    preemptible         = false
   }
 
   disk {
