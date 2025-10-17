@@ -1,7 +1,16 @@
+terraform {
+  required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "3.7.2"
+    }
+  }
+}
 variable "region" {}
 variable "subnetwork" {
   description = "To deploy the instance in"
 }
+
 variable "service_account" {
   description = "The service account to use of the application."
   type        = string
@@ -13,14 +22,24 @@ variable "ziti_identity" {
   default     = ""
 }
 
+variable "suffix" {
+  description = "for all resource names"
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.suffix == "" || can(regex("^-[a-z0-9-]+$", var.suffix))
+    error_message = "Suffix must be empty, a single hyphen, followed by only lowercase alphanumeric characters."
+  }
+}
 locals {
-  arguments =  var.ziti_identity == "" ? "" : " --ziti-configuration ${var.ziti_identity}"
+  arguments = var.ziti_identity == "" ? "" : " --ziti-configuration ${var.ziti_identity}"
 }
 
-resource "google_compute_region_instance_group_manager" "paas-monitor" {
-  name = "paas-monitor-${var.region}"
 
-  base_instance_name = "paas-monitor-${var.region}"
+resource "google_compute_region_instance_group_manager" "paas-monitor" {
+  name = "paas-monitor${var.suffix}-${var.region}"
+
+  base_instance_name = "paas-monitor${var.suffix}-${var.region}"
   region             = var.region
 
   version {
@@ -46,15 +65,19 @@ resource "google_compute_region_instance_group_manager" "paas-monitor" {
     max_unavailable_fixed          = 0
     replacement_method             = "SUBSTITUTE"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_compute_instance_template" "paas-monitor" {
   description = "the paas-monitor backend application."
 
-  tags = ["paas-monitor"]
-
+  tags                 = ["paas-monitor"]
+  name_prefix          = "paas-monitor${var.suffix}-"
   instance_description = "paas-monitor backend"
-  machine_type         = "c2-standard-4" #"g1-small"
+  machine_type         = "c2-standard-4" # "g1-small"
   can_ip_forward       = false
 
   scheduling {
@@ -74,7 +97,7 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   metadata = {
-    startup-script = "docker run --restart -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 ${local.arguments}"
+    startup-script = "docker run --restart always -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 ${local.arguments}"
   }
 
   service_account {
@@ -90,7 +113,7 @@ resource "google_compute_instance_template" "paas-monitor" {
 }
 
 resource "google_compute_region_autoscaler" "paas-monitor" {
-  name   = "paas-monitor-${var.region}"
+  name   = "paas-monitor${var.suffix}-${var.region}"
   target = google_compute_region_instance_group_manager.paas-monitor.self_link
 
   autoscaling_policy {
@@ -106,8 +129,9 @@ resource "google_compute_region_autoscaler" "paas-monitor" {
   region = var.region
 }
 
+
 resource "google_compute_region_health_check" "paas-monitor" {
-  name               = "paas-monitor"
+  name               = "paas-monitor${var.suffix}"
   region             = var.region
   timeout_sec        = 5
   check_interval_sec = 5

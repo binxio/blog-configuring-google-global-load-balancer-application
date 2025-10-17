@@ -1,12 +1,23 @@
 
-module "instance-group" {
+module "ziti-instance-group" {
   for_each        = local.regions
   source          = "./backend"
   region          = each.key
   subnetwork      = google_compute_subnetwork.paas_monitor[each.key].id
   service_account = google_service_account.paas-monitor.email
   ziti_identity   = "${google_secret_manager_secret.paas-monitor-identity.name}/versions/latest"
+  suffix          = "-ziti"
 }
+
+module "glb-instance-group" {
+  for_each        = local.regions
+  source          = "./backend"
+  region          = each.key
+  subnetwork      = google_compute_subnetwork.paas_monitor[each.key].id
+  service_account = google_service_account.paas-monitor.email
+  suffix          = "-glb"
+}
+
 
 resource "google_compute_firewall" "paas-monitor" {
   name    = "paas-monitor-firewall"
