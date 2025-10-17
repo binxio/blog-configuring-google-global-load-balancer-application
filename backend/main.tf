@@ -10,6 +10,11 @@ variable "service_account" {
 variable "ziti_identity" {
   description = "Google Secret version name with the ziti identity configuration."
   type        = string
+  default     = ""
+}
+
+locals {
+  arguments =  var.ziti_identity == "" ? "" : " --ziti-configuration ${var.ziti_identity}"
 }
 
 resource "google_compute_region_instance_group_manager" "paas-monitor" {
@@ -69,7 +74,7 @@ resource "google_compute_instance_template" "paas-monitor" {
   }
 
   metadata = {
-    startup-script = "docker run -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 --ziti-server-configuration gsm:///${var.ziti_identity}"
+    startup-script = "docker run --restart -d -p 1337:1337 -v /etc/ssl/certs:/etc/ssl/certs --env 'MESSAGE=gcp at ${var.region}'  gcr.io/binx-io-public/paas-monitor:4.0.0 ${local.arguments}"
   }
 
   service_account {
