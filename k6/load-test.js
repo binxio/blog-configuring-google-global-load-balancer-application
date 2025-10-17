@@ -15,9 +15,8 @@ export let messageCounter = new Counter('message_requests');
 // Test configuration
 export let options = {
     stages: [
-        { duration: '4m', target: 500 },
         { duration: '2m', target: 500 },
-        { duration: '2m', target: 0 },
+        { duration: '3m', target: 500 },
     ],
 
     thresholds: {
