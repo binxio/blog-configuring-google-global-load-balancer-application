@@ -32,7 +32,7 @@ variable "suffix" {
   }
 }
 locals {
-  arguments = var.ziti_identity == "" ? "" : " --ziti-configuration ${var.ziti_identity}"
+  arguments = var.ziti_identity == "" ? "" : " --ziti-server-configuration ${var.ziti_identity}"
 }
 
 

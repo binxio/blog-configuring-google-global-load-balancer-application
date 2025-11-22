@@ -5,7 +5,7 @@ module "ziti-instance-group" {
   region          = each.key
   subnetwork      = google_compute_subnetwork.paas_monitor[each.key].id
   service_account = google_service_account.paas-monitor.email
-  ziti_identity   = "${google_secret_manager_secret.paas-monitor-identity.name}/versions/latest"
+  ziti_identity   = "gsm:///${google_secret_manager_secret.paas-monitor-identity.name}/versions/latest"
   suffix          = "-ziti"
 }
 
@@ -77,8 +77,8 @@ locals {
   # secrets regions cannot change, therefore we have separated them from the regions.
   secret_regions = toset(["us-central1", "europe-west4", "asia-east1"])
   regions = {
+    "europe-west4" = "10.0.1.0/24",
+    "asia-east1"   = "10.0.2.0/24",
     "us-central1"  = "10.0.0.0/24",
-    "europe-west4" = "10.0.1.0/24"
-    "asia-east1"   = "10.0.2.0/24"
   }
 }
