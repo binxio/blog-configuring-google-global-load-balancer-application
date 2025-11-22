@@ -65,6 +65,12 @@ resource "google_secret_manager_secret" "paas-monitor-identity" {
   }
 }
 
+resource "google_secret_manager_secret_version" "paas-monitor-identity" {
+  secret                 = google_secret_manager_secret.paas-monitor-identity.id
+  secret_data_wo_version = 2
+  secret_data_wo         = file(pathexpand("~/.ziti/identities/paas-monitor.json"))
+}
+
 resource "google_secret_manager_secret_iam_binding" "paas-monitor-identity-accessors" {
   secret_id = google_secret_manager_secret.paas-monitor-identity.secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -78,7 +84,7 @@ locals {
   secret_regions = toset(["us-central1", "europe-west4", "asia-east1"])
   regions = {
     "europe-west4" = "10.0.1.0/24",
-    "asia-east1"   = "10.0.2.0/24",
-    "us-central1"  = "10.0.0.0/24",
+    #"asia-east1"   = "10.0.2.0/24",
+    #"us-central1"  = "10.0.0.0/24",
   }
 }

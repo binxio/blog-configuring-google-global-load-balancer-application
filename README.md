@@ -7,3 +7,6 @@ It implements the following diagram in Terraform.
 
 Read the [corresponding blog](https://binx.io/blog/2018/11/19/how-to-configure-global-load-balancing-with-google-cloud-platform/) for details
 
+
+## Ziti configuration
+Copy the paas monitor service identity to paas-monitor-identity.json. It is excluded from git and can safely be deleted after the initial
